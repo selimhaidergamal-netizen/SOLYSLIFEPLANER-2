@@ -28,7 +28,10 @@
       <label>Username</label>
       <input id="auth-username" type="text" placeholder="soly" autocomplete="username" />
       <label>Password</label>
-      <input id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+      <div class="pw-row">
+        <input id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+        <button type="button" id="pw-toggle" class="pw-toggle">Show</button>
+      </div>
       <p id="auth-error" class="error-text"></p>
       <button type="submit" id="auth-submit" class="btn-primary">Sign in</button>
     </form>
@@ -63,11 +66,21 @@
     </div>
     <p class="hello-line">Hello, <span id="sidebar-name">—</span></p>
 
+    <button id="bell-btn" class="bell-btn" title="Notifications">
+      🔔 <span id="bell-count" class="bell-count hidden">0</span>
+    </button>
+    <div id="bell-dropdown" class="bell-dropdown hidden"></div>
+
+    <button id="cmdk-trigger" class="cmdk-trigger">
+      <span>Search / jump to...</span><span class="cmdk-hint">Ctrl K</span>
+    </button>
+
     <nav class="nav">
       <button class="nav-btn active" data-section="overview">Overview</button>
       <button class="nav-btn" data-section="finance">Finance</button>
       <button class="nav-btn" data-section="habits">Habits</button>
       <button class="nav-btn" data-section="wellness">Sleep &amp; Self-care</button>
+      <button class="nav-btn" data-section="tasks">Tasks</button>
       <button class="nav-btn" data-section="projects">Projects</button>
       <button class="nav-btn" data-section="career">Career</button>
       <button class="nav-btn" data-section="music">Music</button>
@@ -76,6 +89,8 @@
       <button class="nav-btn" data-section="emi">Emi</button>
     </nav>
 
+    <button id="export-btn" class="btn-ghost signout">Export my data</button>
+    <button id="lock-btn" class="btn-ghost signout">Lock</button>
     <button id="signout-btn" class="btn-ghost signout">Sign out</button>
   </aside>
 
@@ -84,7 +99,50 @@
     <!-- sections are rendered here by app.js -->
   </main>
 
+  <button id="fab-btn" class="fab-btn" title="Quick add">+</button>
+
 </section>
+
+<!-- Command palette -->
+<div id="cmdk-overlay" class="modal-overlay hidden">
+  <div class="cmdk-box">
+    <input id="cmdk-input" type="text" placeholder="Jump to a section or search your data..." autocomplete="off" />
+    <div id="cmdk-results" class="cmdk-results"></div>
+  </div>
+</div>
+
+<!-- Quick-add modal -->
+<div id="fab-overlay" class="modal-overlay hidden">
+  <div class="cmdk-box">
+    <p class="eyebrow">Quick add</p>
+    <div class="chip-row" id="fab-choices">
+      <button class="chip" data-kind="txn">Transaction</button>
+      <button class="chip" data-kind="habit-log">Habit check-in</button>
+      <button class="chip" data-kind="task">Task</button>
+      <button class="chip" data-kind="music">Track</button>
+      <button class="chip" data-kind="shopping">Shopping item</button>
+    </div>
+    <div id="fab-form-body"></div>
+  </div>
+</div>
+
+<!-- Lock screen -->
+<div id="lock-overlay" class="modal-overlay hidden">
+  <div class="auth-card">
+    <div class="brand">
+      <div class="core-dot"></div>
+      <h1>Locked</h1>
+      <p class="tagline">Enter your password to continue.</p>
+    </div>
+    <label>Password</label>
+    <input id="lock-password" type="password" placeholder="••••••••" />
+    <p id="lock-error" class="error-text"></p>
+    <button id="lock-submit" class="btn-primary">Unlock</button>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toast-root" class="toast-root"></div>
 
 <!-- Global loading veil -->
 <div id="loading-veil" class="loading-veil hidden">
