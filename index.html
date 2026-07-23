@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SLP — Your Own Jarvis</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="grid-backdrop"></div>
+
+<!-- ===================== AUTH SCREEN ===================== -->
+<section id="screen-auth" class="screen centered">
+  <div class="auth-card">
+    <div class="brand">
+      <div class="core-dot"></div>
+      <h1>SLP</h1>
+      <p class="tagline">Every part of your life, watched over.</p>
+    </div>
+
+    <div class="tab-switch">
+      <button id="tab-signin" class="tab-btn active">Sign in</button>
+      <button id="tab-signup" class="tab-btn">Create account</button>
+    </div>
+
+    <form id="auth-form">
+      <label>Username</label>
+      <input id="auth-username" type="text" placeholder="soly" autocomplete="username" />
+      <label>Password</label>
+      <input id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+      <p id="auth-error" class="error-text"></p>
+      <button type="submit" id="auth-submit" class="btn-primary">Sign in</button>
+    </form>
+    <p class="fine-print">Anyone with the link can create their own account — your data stays yours.</p>
+  </div>
+</section>
+
+<!-- ===================== INTAKE SCREEN ===================== -->
+<section id="screen-intake" class="screen centered">
+  <div class="intake-card">
+    <div class="step-dots" id="intake-dots"></div>
+    <p class="eyebrow" id="intake-progress"></p>
+    <h2 id="intake-title"></h2>
+    <p class="subtitle" id="intake-subtitle"></p>
+    <div id="intake-body"></div>
+    <div class="intake-nav">
+      <button id="intake-back" class="btn-ghost">Back</button>
+      <button id="intake-next" class="btn-primary">Continue</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== MAIN APP ===================== -->
+<section id="screen-app" class="screen app-shell">
+
+  <!-- Sidebar: Jarvis core + nav -->
+  <aside class="sidebar">
+    <div class="core-wrap">
+      <div class="core-ring"></div>
+      <div class="core-ring ring-2"></div>
+      <div class="core-dot pulsing"></div>
+    </div>
+    <p class="hello-line">Hello, <span id="sidebar-name">—</span></p>
+
+    <nav class="nav">
+      <button class="nav-btn active" data-section="overview">Overview</button>
+      <button class="nav-btn" data-section="finance">Finance</button>
+      <button class="nav-btn" data-section="habits">Habits</button>
+      <button class="nav-btn" data-section="wellness">Sleep &amp; Self-care</button>
+      <button class="nav-btn" data-section="projects">Projects</button>
+      <button class="nav-btn" data-section="career">Career</button>
+      <button class="nav-btn" data-section="music">Music</button>
+      <button class="nav-btn" data-section="shopping">Shopping</button>
+      <button class="nav-btn" data-section="summary">Monthly Summary</button>
+      <button class="nav-btn" data-section="emi">Emi</button>
+    </nav>
+
+    <button id="signout-btn" class="btn-ghost signout">Sign out</button>
+  </aside>
+
+  <!-- Main content -->
+  <main class="content" id="content-root">
+    <!-- sections are rendered here by app.js -->
+  </main>
+
+</section>
+
+<!-- Global loading veil -->
+<div id="loading-veil" class="loading-veil hidden">
+  <div class="core-dot pulsing"></div>
+  <p>Booting SLP...</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
