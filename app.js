@@ -23,7 +23,7 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 function showScreen(id) {
-  ["screen-auth", "screen-intake", "screen-app"].forEach((s) => {
+  ["screen-intake", "screen-app"].forEach((s) => {
     $("#" + s).classList.toggle("hidden", s !== id);
   });
 }
@@ -31,64 +31,24 @@ function showLoading(on) {
   $("#loading-veil").classList.toggle("hidden", !on);
 }
 
-/* ================= AUTH ================= */
-let authMode = "signin";
-
-$("#tab-signin").addEventListener("click", () => setAuthMode("signin"));
-$("#tab-signup").addEventListener("click", () => setAuthMode("signup"));
-
-function setAuthMode(mode) {
-  authMode = mode;
-  $("#tab-signin").classList.toggle("active", mode === "signin");
-  $("#tab-signup").classList.toggle("active", mode === "signup");
-  $("#auth-submit").textContent = mode === "signin" ? "Sign in" : "Create account";
-  $("#auth-error").textContent = "";
+/* ================= SILENT DEVICE ACCOUNT =================
+   No login screen: the first time the app runs on a device it
+   quietly creates a random, unique account behind the scenes.
+   Supabase persists that session in the browser automatically,
+   so every future visit on this device goes straight back in. */
+function randomToken(bytes) {
+  return Array.from(crypto.getRandomValues(new Uint8Array(bytes)))
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-$("#auth-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const usernameRaw = $("#auth-username").value.trim();
-  const username = usernameRaw.toLowerCase();
-  const password = $("#auth-password").value;
-  const errEl = $("#auth-error");
-  errEl.textContent = "";
-
-  if (!username || !password) { errEl.textContent = "Enter a username and password."; return; }
-  if (authMode === "signup" && password.length < 6) { errEl.textContent = "Password should be at least 6 characters."; return; }
-
-  $("#auth-submit").disabled = true;
-  const shadowEmail = toShadowEmail(username);
-
-  try {
-    if (authMode === "signup") {
-      const { data: existing } = await sb.from("profiles").select("id").ilike("username", username).maybeSingle();
-      if (existing) { errEl.textContent = "That username is taken."; $("#auth-submit").disabled = false; return; }
-
-      const { data, error } = await sb.auth.signUp({ email: shadowEmail, password });
-      if (error) throw error;
-
-      await sb.from("profiles").insert({ id: data.user.id, username, onboarded: false, currency: "EGP" });
-      await enterApp(data.user.id, username, true);
-    } else {
-      const { data, error } = await sb.auth.signInWithPassword({ email: shadowEmail, password });
-      if (error) throw new Error("Wrong username or password.");
-
-      const { data: profile } = await sb.from("profiles").select("onboarded").eq("id", data.user.id).single();
-      await enterApp(data.user.id, username, !profile?.onboarded);
-    }
-  } catch (err) {
-    errEl.textContent = err.message || "Something went wrong.";
-  } finally {
-    $("#auth-submit").disabled = false;
-  }
-});
-
-$("#signout-btn").addEventListener("click", async () => {
-  await endSession();
-  await sb.auth.signOut();
-  state = { userId: null, username: null, currentSection: "overview", emiMessages: [] };
-  showScreen("screen-auth");
-});
+async function createDeviceAccount() {
+  const username = "guest_" + randomToken(5);
+  const password = randomToken(24);
+  const { data, error } = await sb.auth.signUp({ email: toShadowEmail(username), password });
+  if (error) throw error;
+  await sb.from("profiles").insert({ id: data.user.id, username, onboarded: false, currency: "EGP" });
+  return { userId: data.user.id, username };
+}
 
 async function enterApp(userId, username, needsIntake) {
   state.userId = userId;
@@ -991,14 +951,22 @@ async function renderSocialize(root) {
 /* ================= BOOT ================= */
 (async function boot() {
   showLoading(true);
-  const { data } = await sb.auth.getSession();
-  if (!data.session) {
+  try {
+    const { data } = await sb.auth.getSession();
+    if (data.session) {
+      const userId = data.session.user.id;
+      const { data: profile } = await sb.from("profiles").select("username, onboarded").eq("id", userId).single();
+      showLoading(false);
+      await enterApp(userId, profile?.username, !profile?.onboarded);
+      return;
+    }
+    // First time on this device — no login, just quietly start.
+    const acct = await createDeviceAccount();
     showLoading(false);
-    showScreen("screen-auth");
-    return;
+    await enterApp(acct.userId, acct.username, true);
+  } catch (err) {
+    showLoading(false);
+    console.error("Could not start SLP:", err);
+    $("#content-root") && ($("#content-root").innerHTML = `<p class="empty-text">Something went wrong starting the app. Please refresh.</p>`);
   }
-  const userId = data.session.user.id;
-  const { data: profile } = await sb.from("profiles").select("username, onboarded").eq("id", userId).single();
-  showLoading(false);
-  await enterApp(userId, profile?.username, !profile?.onboarded);
 })();
