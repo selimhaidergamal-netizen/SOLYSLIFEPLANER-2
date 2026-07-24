@@ -268,3 +268,6 @@ input:focus { border-color: var(--amber); }
   .content { height: auto; padding: 20px; }
   .emi-shell { height: auto; }
 }
+
+/* ---------- Fitness & Socialize additions ---------- */
+.pill.amber { border-color: rgba(245,185,66,0.5); color: var(--amber); background: var(--amber-dim); }

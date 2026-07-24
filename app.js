@@ -227,6 +227,8 @@ function renderSection(name) {
     finance: renderFinance,
     habits: renderHabits,
     wellness: renderWellness,
+    fitness: renderFitness,
+    socialize: renderSocialize,
     projects: renderProjects,
     career: renderCareer,
     music: renderMusic,
@@ -774,6 +776,216 @@ async function sendEmiMessage() {
     state.emiMessages.push({ role: "emi", content: "I couldn't reach my brain just now — try again in a moment." });
     paintChat();
   }
+}
+
+/* ================= FITNESS ================= */
+async function renderFitness(root) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [{ data: profile }, { data: foods }, { data: water }, { data: weights }] = await Promise.all([
+    sb.from("fitness_profile").select("*").eq("user_id", state.userId).maybeSingle(),
+    sb.from("food_logs").select("*").eq("user_id", state.userId).eq("log_date", today).order("created_at", { ascending: true }),
+    sb.from("water_logs").select("*").eq("user_id", state.userId).eq("log_date", today).maybeSingle(),
+    sb.from("weight_logs").select("*").eq("user_id", state.userId).order("log_date", { ascending: false }).limit(10),
+  ]);
+
+  const goal = profile?.calorie_goal || 2000;
+  const consumed = (foods || []).reduce((s, f) => s + Number(f.calories || 0), 0);
+  const glasses = water?.glasses || 0;
+  const latestWeight = weights?.[0];
+
+  root.innerHTML = `
+    <h1 class="page-title">Fitness</h1>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Calories today</div><div class="stat-value">${consumed} / ${goal}</div><div class="stat-sub">${Math.max(goal - consumed, 0)} left today</div></div>
+      <div class="stat-card"><div class="stat-label">Water</div><div class="stat-value">${glasses} / 8</div></div>
+      <div class="stat-card"><div class="stat-label">Latest weight</div><div class="stat-value">${latestWeight ? latestWeight.weight + " " + latestWeight.unit : "—"}</div></div>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Log food</h3>
+      <form id="food-form" class="inline-form">
+        <input id="food-name" type="text" placeholder="Food name" />
+        <input id="food-cal" type="number" placeholder="kcal" />
+        <button class="btn-primary" type="submit">Add</button>
+      </form>
+      <div class="row-list">
+        ${(foods || []).map((f) => `
+          <div class="row-item">
+            <span>${f.name}</span>
+            <span class="muted">${f.calories} kcal &nbsp;<button class="link-btn muted" data-food="${f.id}">remove</button></span>
+          </div>`).join("") || `<p class="empty-text">Nothing logged yet today.</p>`}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Water</h3>
+      <div class="chip-row">
+        <button class="btn-ghost" id="water-minus">– glass</button>
+        <span style="align-self:center; color: var(--text-dim); font-size:13px;">${glasses} / 8 glasses</span>
+        <button class="btn-ghost" id="water-plus">+ glass</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Weight log</h3>
+      <form id="weight-form" class="inline-form">
+        <input id="weight-value" type="number" step="0.1" placeholder="Weight" />
+        <select id="weight-unit"><option value="kg">kg</option><option value="lb">lb</option></select>
+        <button class="btn-primary" type="submit">Log</button>
+      </form>
+      <div class="row-list">
+        ${(weights || []).map((w) => `<div class="row-item"><span>${w.log_date}</span><span class="muted">${w.weight} ${w.unit}</span></div>`).join("") || `<p class="empty-text">No entries yet.</p>`}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Daily calorie goal</h3>
+      <form id="goal-form" class="inline-form">
+        <input id="goal-value" type="number" placeholder="e.g. 2000" value="${goal}" />
+        <button class="btn-primary" type="submit">Save</button>
+      </form>
+    </div>
+  `;
+
+  $("#food-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = $("#food-name").value.trim();
+    const cal = parseInt($("#food-cal").value, 10);
+    if (!name || !cal) return;
+    await sb.from("food_logs").insert({ user_id: state.userId, log_date: today, name, calories: cal });
+    renderFitness(root);
+  });
+
+  root.querySelectorAll("[data-food]").forEach((btn) => btn.addEventListener("click", async () => {
+    await sb.from("food_logs").delete().eq("id", btn.dataset.food);
+    renderFitness(root);
+  }));
+
+  $("#water-plus").addEventListener("click", async () => {
+    await sb.from("water_logs").upsert({ user_id: state.userId, log_date: today, glasses: glasses + 1 }, { onConflict: "user_id,log_date" });
+    renderFitness(root);
+  });
+  $("#water-minus").addEventListener("click", async () => {
+    await sb.from("water_logs").upsert({ user_id: state.userId, log_date: today, glasses: Math.max(glasses - 1, 0) }, { onConflict: "user_id,log_date" });
+    renderFitness(root);
+  });
+
+  $("#weight-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const weight = parseFloat($("#weight-value").value);
+    if (!weight) return;
+    await sb.from("weight_logs").insert({ user_id: state.userId, log_date: today, weight, unit: $("#weight-unit").value });
+    renderFitness(root);
+  });
+
+  $("#goal-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const calorie_goal = parseInt($("#goal-value").value, 10);
+    if (!calorie_goal) return;
+    await sb.from("fitness_profile").upsert({ user_id: state.userId, calorie_goal }, { onConflict: "user_id" });
+    renderFitness(root);
+  });
+}
+
+/* ================= SOCIALIZE ================= */
+const SOCIAL_INTERESTS = [
+  "Outdoors / nature (hikes, parks)",
+  "Food & drink (cafes, markets)",
+  "Arts & culture (museums, live music)",
+  "Fitness / sport communities (classes, leagues)",
+  "Low-key (small groups, quiet spots)",
+];
+
+async function renderSocialize(root) {
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const [{ data: profile }, { data: outings }] = await Promise.all([
+    sb.from("fitness_profile").select("city, social_interest").eq("user_id", state.userId).maybeSingle(),
+    sb.from("outings_log").select("log_date").eq("user_id", state.userId).gte("log_date", weekAgo),
+  ]);
+
+  const outingDates = new Set((outings || []).map((o) => o.log_date));
+  const loggedToday = outingDates.has(today);
+
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    days.push(d);
+  }
+
+  root.innerHTML = `
+    <h1 class="page-title">Socialize</h1>
+
+    <div class="card">
+      <h3 class="card-title">Your profile</h3>
+      <form id="social-profile-form" class="inline-form">
+        <input id="social-city" type="text" placeholder="City / area" value="${profile?.city || ""}" />
+        <select id="social-interest">
+          ${SOCIAL_INTERESTS.map((opt) => `<option value="${opt}" ${profile?.social_interest === opt ? "selected" : ""}>${opt}</option>`).join("")}
+        </select>
+        <button class="btn-primary" type="submit">Save</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
+        <h3 class="card-title" style="margin:0;">Get out there</h3>
+        <button class="btn-primary" id="find-events-btn" style="width:auto; margin:0; padding:9px 18px;">Find things to do</button>
+      </div>
+      <div id="event-results"><p class="empty-text">Save your city above, then tap "Find things to do".</p></div>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Socializing streak</h3>
+      <div class="chip-row" style="margin-bottom:12px;">
+        ${days.map((d) => `<span class="pill ${outingDates.has(d) ? "amber" : ""}">${d.slice(5)}</span>`).join("")}
+      </div>
+      <button class="btn-primary" id="log-outing-btn" style="width:auto;" ${loggedToday ? "disabled" : ""}>${loggedToday ? "✓ Logged today" : "I went out today"}</button>
+    </div>
+  `;
+
+  $("#social-profile-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const city = $("#social-city").value.trim();
+    const social_interest = $("#social-interest").value;
+    if (!city) return;
+    await sb.from("fitness_profile").upsert({ user_id: state.userId, city, social_interest }, { onConflict: "user_id" });
+    renderSocialize(root);
+  });
+
+  $("#log-outing-btn").addEventListener("click", async () => {
+    if (loggedToday) return;
+    await sb.from("outings_log").insert({ user_id: state.userId, log_date: today });
+    renderSocialize(root);
+  });
+
+  $("#find-events-btn").addEventListener("click", async () => {
+    const resultsEl = $("#event-results");
+    const city = $("#social-city").value.trim() || profile?.city;
+    if (!city) { resultsEl.innerHTML = `<p class="empty-text">Add your city above first.</p>`; return; }
+
+    resultsEl.innerHTML = `<p class="empty-text">Looking for things happening near you...</p>`;
+    const { data: { session } } = await sb.auth.getSession();
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/social-suggest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ city, interest: $("#social-interest").value, goal: "get more social & active" }),
+      });
+      const data = await res.json();
+      const suggestions = data.suggestions || [];
+      resultsEl.innerHTML = suggestions.length
+        ? suggestions.map((ev) => `
+            <div class="row-item" style="display:block; padding: 12px 0;">
+              <span class="pill amber" style="margin-bottom:6px; display:inline-block;">${ev.category || "Idea"}</span>
+              <div style="font-weight:600; margin: 4px 0 2px;">${ev.title || ""}</div>
+              <div class="muted">${ev.description || ""}</div>
+            </div>`).join("")
+        : `<p class="empty-text">Couldn't find anything just now — try again in a moment.</p>`;
+    } catch (err) {
+      resultsEl.innerHTML = `<p class="empty-text">Couldn't reach the suggestion engine — try again in a moment.</p>`;
+    }
+  });
 }
 
 /* ================= BOOT ================= */
